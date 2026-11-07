@@ -4,23 +4,35 @@
 breed [ clients client]
 breed [ servers server]
 breed [ routers router]
+breed [ packages package]
 
+turtles-own
+[
+  infected?
+]
 ;; declare client turtle variables
 clients-own 
 [ 
-  infected? 
+
 ]
 
 ;; declare server turtle variables
 servers-own
 [
-  infected?
+
 ]
 
 ;; declare router turtle variables
 routers-own
 [
-  infected?
+
+]
+
+packages-own
+[
+  destination
+  finish
+  visited
 ]
 
 
@@ -42,6 +54,7 @@ to setup-turtles
       set shape "computer workstation"
       set size 1.5
       set color white
+      set infected? false
     ]
   ]
   ;; create n instances of turtle breeds as specified by the user
@@ -52,6 +65,7 @@ to setup-turtles
       set shape "computer server"
       set size 1.5
       set color white
+      set infected? false
     ]
   ]
   ;; create n instances of turtle breeds as specified by the user
@@ -59,9 +73,10 @@ to setup-turtles
   [
     sprout-routers 1
     [
-      set shape "electric outlet"
-      set size 1.5
+      set shape "circle"
+      set size 1
       set color white
+      set infected? false
     ]
   ]
 end
@@ -91,36 +106,100 @@ to setup-network
   ask routers
   [
     ;; connect each router to closest unconnected router
-    let target min-one-of other routers with [not link-neighbor? myself] [distance myself]
+    let target min-n-of 2 other routers with [not link-neighbor? myself] [distance myself]
     ;; verify that target exists
     if target != nobody
     [
-      create-link-with target
+     create-links-with target
     ]
   ]
 end
 
-to go
-  ;; basic runtime code goes here
-end
-
 to start-infection
-  ;; infect n devices at random. maybe make start with servers/routers possible as well? 
-  ;; max of init-infected = current value of n-clients to avoid error
-  ask n-of init-infected clients
+  ;; infect 1 device at random. maybe make start with servers/routers possible as well? 
+  ask one-of clients
   [
     set infected? True
     set color red
   ]
-end</code>
+end
+
+to go
+  if not any? packages
+  [
+    let origin one-of clients
+    ask origin
+    [
+      ask patch-here
+      [
+        sprout-packages 1
+        [
+          set shape "letter sealed"
+          set size 1.5
+          set color [color] of origin
+          set infected? [infected?] of origin
+          set finish one-of other clients
+          set destination one-of ([link-neighbors] of origin) with [breed = routers]
+          face destination
+          set visited (turtle-set)
+        ]
+      ] 
+    ]
+  ]
+  ask packages
+  [
+    if patch-here = [patch-here] of finish
+    [
+      if infected?
+      [
+        ask finish
+        [
+          set color red
+          set infected? True
+        ]
+      ]
+      die
+    ]
+    let my-visited visited
+    let my-finish finish
+    if patch-here != [patch-here] of destination
+    [
+      fd 0.5
+    ]
+    if patch-here = [patch-here] of destination
+    [
+      if [link-neighbor? my-finish] of destination
+      [
+        set destination my-finish
+      ]
+      if destination != my-finish
+      [
+        set visited (turtle-set visited destination)
+        let options ([link-neighbors] of destination) with [breed = routers and not member? self my-visited]
+        if any? options
+        [
+          set destination min-one-of options [distance my-finish]
+        ]
+      ]
+      face destination
+    ]
+  ]
+  tick
+end
+
+</code>
   <widgets>
     <view x="368" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="0" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
     <slider x="0" step="1" y="40" max="50" width="250" display="n-clients" height="50" min="1" direction="Horizontal" default="25.0" variable="n-clients"></slider>
-    <slider x="0" step="1" y="90" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-servers"></slider>
+    <slider x="0" step="1" y="90" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="3.0" variable="n-servers"></slider>
     <slider x="0" step="1" y="140" max="25" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
     <button x="55" y="0" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
-    <slider x="0" step="1" y="190" max="n-clients" width="250" display="init-infected" height="50" min="1" direction="Horizontal" default="5.0" variable="init-infected"></slider>
+    <chooser x="0" y="190" height="60" variable="users-age" current="2" width="250" display="users-age">
+      <choice type="string" value="Young"></choice>
+      <choice type="string" value="Middle"></choice>
+      <choice type="string" value="Old"></choice>
+    </chooser>
   </widgets>
   <info>## WHAT IS IT?
 
@@ -474,6 +553,11 @@ end</code>
       <rectangle endX="131" startY="199" marked="false" color="255" endY="236" startX="123" filled="true"></rectangle>
       <rectangle endX="255" startY="0" marked="false" color="255" endY="296" startX="45" filled="false"></rectangle>
     </shape>
+    <shape name="eyeball" rotatable="false" editableColorIndex="0">
+      <circle x="22" y="20" marked="false" color="-1" diameter="248" filled="true"></circle>
+      <circle x="83" y="81" marked="true" color="-1920102913" diameter="122" filled="true"></circle>
+      <circle x="122" y="120" marked="false" color="255" diameter="44" filled="true"></circle>
+    </shape>
     <shape name="face happy" rotatable="false" editableColorIndex="0">
       <circle x="8" y="8" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
       <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
@@ -674,11 +758,28 @@ end</code>
         <point x="165" y="195"></point>
       </polygon>
     </shape>
+    <shape name="letter sealed" rotatable="false" editableColorIndex="0">
+      <rectangle endX="270" startY="90" marked="true" color="-1920102913" endY="225" startX="30" filled="true"></rectangle>
+      <rectangle endX="270" startY="90" marked="false" color="255" endY="225" startX="30" filled="false"></rectangle>
+      <line endX="150" startY="105" marked="false" color="255" endY="180" startX="270"></line>
+      <line endX="150" startY="105" marked="false" color="255" endY="180" startX="30"></line>
+      <line endX="181" startY="225" marked="false" color="255" endY="161" startX="270"></line>
+      <line endX="119" startY="225" marked="false" color="255" endY="161" startX="30"></line>
+    </shape>
     <shape name="line" rotatable="true" editableColorIndex="0">
       <line endX="150" startY="0" marked="true" color="-1920102913" endY="300" startX="150"></line>
     </shape>
     <shape name="line half" rotatable="true" editableColorIndex="0">
       <line endX="150" startY="0" marked="true" color="-1920102913" endY="150" startX="150"></line>
+    </shape>
+    <shape name="orbit 6" rotatable="true" editableColorIndex="0">
+      <circle x="116" y="11" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
+      <circle x="26" y="176" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
+      <circle x="206" y="176" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
+      <circle x="45" y="45" marked="true" color="-1920102913" diameter="210" filled="false"></circle>
+      <circle x="26" y="58" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
+      <circle x="206" y="58" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
+      <circle x="116" y="221" marked="true" color="-1920102913" diameter="67" filled="true"></circle>
     </shape>
     <shape name="pentagon" rotatable="false" editableColorIndex="0">
       <polygon color="-1920102913" filled="true" marked="true">
