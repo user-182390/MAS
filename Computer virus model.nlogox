@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.4" snapToGrid="true">
-  <code>;; specify different turtle breeds
+  <code><![CDATA[;; specify different turtle breeds
 breed [ clients client]
 breed [ servers server]
 breed [ routers router]
@@ -9,23 +9,6 @@ breed [ packages package]
 turtles-own
 [
   infected?
-]
-;; declare client turtle variables
-clients-own 
-[ 
-
-]
-
-;; declare server turtle variables
-servers-own
-[
-
-]
-
-;; declare router turtle variables
-routers-own
-[
-
 ]
 
 packages-own
@@ -127,79 +110,141 @@ end
 to go
   if not any? packages
   [
-    let origin one-of clients
-    ask origin
-    [
-      ask patch-here
-      [
-        sprout-packages 1
-        [
-          set shape "letter sealed"
-          set size 1.5
-          set color [color] of origin
-          set infected? [infected?] of origin
-          set finish one-of other clients
-          set destination one-of ([link-neighbors] of origin) with [breed = routers]
-          face destination
-          set visited (turtle-set)
-        ]
-      ] 
-    ]
+    create-package
   ]
   ask packages
   [
-    if patch-here = [patch-here] of finish
-    [
-      if infected?
-      [
-        ask finish
-        [
-          set color red
-          set infected? True
-        ]
-      ]
-      die
-    ]
-    let my-visited visited
-    let my-finish finish
-    if patch-here != [patch-here] of destination
-    [
-      fd 0.5
-    ]
-    if patch-here = [patch-here] of destination
-    [
-      if [link-neighbor? my-finish] of destination
-      [
-        set destination my-finish
-      ]
-      if destination != my-finish
-      [
-        set visited (turtle-set visited destination)
-        let options ([link-neighbors] of destination) with [breed = routers and not member? self my-visited]
-        if any? options
-        [
-          set destination min-one-of options [distance my-finish]
-        ]
-      ]
-      face destination
-    ]
+    check-finish
+    move-package 
   ]
   tick
 end
 
-</code>
+to step
+  go
+end
+
+to create-package
+  let origin one-of (turtle-set clients servers)
+  ask origin
+  [
+    ask patch-here
+    [
+      sprout-packages 1
+      [
+        set shape "letter sealed"
+        set size 1.5
+        set color [color] of origin
+        set infected? [infected?] of origin
+        set finish one-of other (turtle-set clients servers)
+        set destination one-of ([link-neighbors] of origin) with [breed = routers]
+        face destination
+        set visited (turtle-set)
+      ]
+    ] 
+  ]
+end
+
+to check-finish
+  if patch-here = [patch-here] of finish
+  [
+    if infected?
+    [
+      initiate-infection
+    ]
+    die
+  ]
+end
+
+to move-package
+  if patch-here != [patch-here] of destination
+  [
+    fd 1
+  ]
+  if patch-here = [patch-here] of destination
+  [
+    let my-visited visited
+    let my-finish finish
+    if [link-neighbor? my-finish] of destination
+    [
+      set destination my-finish
+    ]
+    if destination != my-finish
+    [
+      set visited (turtle-set visited destination)
+      let options ([link-neighbors] of destination) with [breed = routers and not member? self my-visited]
+      if any? options
+      [
+        set destination min-one-of options [distance my-finish]
+      ]
+      if not any? options
+      [
+        set visited (turtle-set)
+      ]
+    ]
+    face destination
+  ]
+end
+
+to initiate-infection
+  let users-age-factor 0
+  if users-age = "Young"
+  [
+    set users-age-factor 2
+  ]
+  if users-age = "Middle"
+  [
+    set users-age-factor 0
+  ]
+  if users-age = "Old"
+  [
+    set users-age-factor 1
+  ]
+  let score (users-age-weight * users-age-factor)
+  let max-score (users-age-weight * 2)
+  let chance (base-infection-rate * (score / max-score))
+  if (random-float 1 < chance)
+  [
+    ask finish
+    [
+      set color red
+      set infected? True
+    ]
+  ]
+end
+  
+  
+
+]]></code>
   <widgets>
-    <view x="368" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
+    <view x="590" wrappingAllowedX="false" y="30" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="0" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
     <slider x="0" step="1" y="40" max="50" width="250" display="n-clients" height="50" min="1" direction="Horizontal" default="25.0" variable="n-clients"></slider>
-    <slider x="0" step="1" y="90" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="3.0" variable="n-servers"></slider>
+    <slider x="0" step="1" y="90" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="25.0" variable="n-servers"></slider>
     <slider x="0" step="1" y="140" max="25" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
     <button x="55" y="0" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
-    <chooser x="0" y="190" height="60" variable="users-age" current="2" width="250" display="users-age">
+    <slider x="0" step="0.1" y="190" max="1" width="250" display="base-infection-rate" height="50" min="0" direction="Horizontal" default="0.1" variable="base-infection-rate"></slider>
+    <plot x="1205" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="Devices" y="0" xMin="0.0" height="175" legend="false" xMax="1.0" yMin="0.0" width="230" xAxis="Ticks" display="Infected">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="default" color="-16777216" legend="true">
+        <setup></setup>
+        <update>plot count (turtle-set clients servers) with [infected? = True]</update>
+      </pen>
+    </plot>
+    <chooser x="0" y="240" height="60" variable="users-age" current="0" width="250" display="users-age">
       <choice type="string" value="Young"></choice>
       <choice type="string" value="Middle"></choice>
       <choice type="string" value="Old"></choice>
     </chooser>
+    <chooser x="0" y="350" height="60" variable="users-risk-aversion" current="0" width="250" display="users-risk-aversion">
+      <choice type="string" value="Low"></choice>
+      <choice type="string" value="Medium"></choice>
+      <choice type="string" value="High"></choice>
+    </chooser>
+    <slider x="0" step="0.1" y="300" max="1" width="250" display="users-age-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="users-age-weight"></slider>
+    <slider x="0" step="0.1" y="410" max="1" width="250" display="users-risk-aversion-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="users-risk-aversion-weight"></slider>
+    <button x="110" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">step</button>
   </widgets>
   <info>## WHAT IS IT?
 
