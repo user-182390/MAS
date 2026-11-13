@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.4" snapToGrid="true">
-  <code><![CDATA[;; specify different turtle breeds
+  <code><![CDATA[; specify different turtle breeds
 breed [ clients client]
 breed [ servers server]
 breed [ routers router]
 breed [ packages package]
 
+; define global variables
 globals 
 [
   cycles 
@@ -19,6 +20,7 @@ globals
   avg-recovery-cycle
 ]
 
+; define turtle variables
 turtles-own
 [
   patient-zero?
@@ -26,6 +28,7 @@ turtles-own
   infection-time
 ]
 
+; define package variables
 packages-own
 [
   destination
@@ -33,7 +36,7 @@ packages-own
   visited
 ]
 
-
+; setup procedure
 to setup
   ;; reset values and call all initial functions
   clear-all
@@ -46,12 +49,15 @@ to setup
   calculate-recovery-chance
 end
 
+; turtle spawning
 to setup-turtles
-  ;; create n instances of turtle breeds as specified by the user
+  ; create n instances of turtle breeds as specified by the user
   ask n-of n-clients patches with [not any? turtles-here and not any? turtles-on neighbors]
   [
+    ; spawn 1
     sprout-clients 1
     [
+      ; set variables
       set shape "computer workstation"
       set size 1.5
       set color white
@@ -59,11 +65,13 @@ to setup-turtles
       set infected? False
     ]
   ]
-  ;; create n instances of turtle breeds as specified by the user
+  ; create n instances of turtle breeds as specified by the user
   ask n-of n-servers patches with [not any? turtles-here and not any? turtles-on neighbors]
   [
+    ; spawn 1
     sprout-servers 1
     [
+      ; set variables
       set shape "computer server"
       set size 1.5
       set color white
@@ -71,11 +79,13 @@ to setup-turtles
       set infected? False
     ]
   ]
-  ;; create n instances of turtle breeds as specified by the user
+  ; create n instances of turtle breeds as specified by the user
   ask n-of n-routers patches with [not any? turtles-here and not any? turtles-on neighbors]
   [
+    ; spawn 1
     sprout-routers 1
     [
+      ; set variables
       set shape "circle"
       set size 1
       set color white
@@ -85,44 +95,51 @@ to setup-turtles
   ]
 end
 
+; create network
 to setup-network
+  ; get all clients
   ask clients
   [
-    ;; connect each client to closest router
+    ; connect each client to closest router
     let target min-one-of routers [distance myself]
-    ;; verify that target exists (might become redundant depending on range of n-routers)
+    ; verify that target exists (redundant if n-routers >= 1)
     if target != nobody
     [
       create-link-with target
     ]
   ]
   
+  ; get all servers
   ask servers
   [
-    ;; connect each server to closest router
+    ; connect each server to closest router
     let target min-one-of routers [distance myself]
-    ;; verify that target exists (might become redundant depending on range of n-routers)
+    ; verify that target exists (redundant if n-routers >= 1)
     if target != nobody
     [
       create-link-with target
     ]
   ]
+  
+  ; get all routers
   ask routers
   [
-    ;; connect each router to closest unconnected router
+    ; connect each router to closest unconnected router
     let target min-n-of 2 other routers with [not link-neighbor? myself] [distance myself]
-    ;; verify that target exists
+    ; verify that target exists
     if target != nobody
     [
-     create-links-with target
+      create-links-with target
     ]
   ]
 end
 
+; infect patient zero
 to start-infection
-  ;; infect 1 device at random. maybe make start with servers/routers possible as well? 
+  ; infect 1 device at random
   ask one-of (turtle-set clients servers)
   [
+    ; set variables
     set patient-zero? True    
     set color red
     set infected? True
@@ -130,7 +147,9 @@ to start-infection
   ]
 end
 
+; calculate infection chance at setup with score mapping
 to calculate-infection-chance
+  ; map age to score
   let user-age-factor 0
   (ifelse
     user-age = "Young" [ set user-age-factor 2 ]
@@ -138,6 +157,7 @@ to calculate-infection-chance
     user-age = "Old" [ set user-age-factor 1 ]
   )
   
+  ; map digital security awareness to score
   let digital-security-awareness-factor 0
   (ifelse
     digital-security-awareness = "Very low" [ set digital-security-awareness-factor 2 ]
@@ -147,6 +167,7 @@ to calculate-infection-chance
     digital-security-awareness = "Very high" [ set digital-security-awareness-factor -2 ]
   )
   
+  ; map risk aversion to score
   let risk-aversion-factor 0
   (ifelse
     risk-aversion = "Very low" [ set risk-aversion-factor 2 ] 
@@ -155,7 +176,8 @@ to calculate-infection-chance
     risk-aversion = "High" [ set risk-aversion-factor -1 ] 
     risk-aversion = "Very high" [ set risk-aversion-factor -2 ]
   )
-    
+  
+  ; map time online to score
   let time-online-factor 0
   (ifelse 
     time-online = "Low" [ set time-online-factor -1]
@@ -163,6 +185,7 @@ to calculate-infection-chance
     time-online = "High" [ set time-online-factor 1]
   )
   
+  ; map untrustworthy usage to score
   let untrustworthy-usage-factor 0
   (ifelse 
     untrustworthy-usage = "Very low" [ set untrustworthy-usage-factor -2 ]
@@ -172,12 +195,25 @@ to calculate-infection-chance
     untrustworthy-usage = "Very high" [ set untrustworthy-usage-factor 2 ]
   )
 
+  ; multiply factors by corresponding weights
   let score ((user-age-weight * user-age-factor) + (digital-security-awareness-weight * digital-security-awareness-factor) + (risk-aversion-weight * risk-aversion-factor) + (time-online-weight * time-online-factor) + (untrustworthy-usage-weight * untrustworthy-usage-factor))
+  ; get highest possible score
   let max-score ((user-age-weight * 2) + (digital-security-awareness-weight * 2) + (risk-aversion-weight * 2) + (time-online-weight * 1) + (untrustworthy-usage-weight * 2))
-  set infection-chance max (list (base-infection-chance * (score / max-score)) 0) 
+  ; avoid zero division error
+  ifelse max-score != 0
+  [
+    ; set infection chance, ensure it cant be negative
+    set infection-chance max (list (base-infection-chance * (score / max-score)) 0) 
+  ]
+  [
+    ; if every weight is set to 0, use the base chance
+    set infection-chance base-infection-chance
+  ]
 end
 
+; calculate infection chance at setup with score mapping
 to calculate-recovery-chance
+  ; map digital security awareness to score
   let digital-security-awareness-factor 0
   (ifelse
     digital-security-awareness = "Very low" [ set digital-security-awareness-factor -2 ]
@@ -187,6 +223,7 @@ to calculate-recovery-chance
     digital-security-awareness = "Very high" [ set digital-security-awareness-factor 2 ]
   )
   
+  ; map risk aversion to score
   let risk-aversion-factor 0
   (ifelse
     risk-aversion = "Very low" [ set risk-aversion-factor -2 ] 
@@ -196,6 +233,7 @@ to calculate-recovery-chance
     risk-aversion = "Very high" [ set risk-aversion-factor 2 ]
   )
   
+  ; map untrustworthy usage to score
   let untrustworthy-usage-factor 0
   (ifelse 
     untrustworthy-usage = "Very low" [ set untrustworthy-usage-factor 2 ]
@@ -205,155 +243,241 @@ to calculate-recovery-chance
     untrustworthy-usage = "Very high" [ set untrustworthy-usage-factor -2 ]
   )
   
+  ; multiply factors by corresponding weights
   let score ((digital-security-awareness-weight * digital-security-awareness-factor) + (risk-aversion-weight * risk-aversion-factor) + (untrustworthy-usage-weight * untrustworthy-usage-factor))
+  ; get highest possible score
   let max-score ((digital-security-awareness-weight * 2) + (risk-aversion-weight * 2) + (untrustworthy-usage-weight * 2))
-  set recovery-chance (max (list (base-recovery-chance * (score / max-score)) 0)  / count (turtle-set clients servers))
+  ; prevent zero division error
+  ifelse max-score != 0
+  [
+    ; set recovery chance, ensure it cant be negative. divide by number of devices, as this chance is applied to every infected device every cycle. 
+    set recovery-chance (max (list (base-recovery-chance * (score / max-score)) 0)  / count (turtle-set clients servers))
+  ]
+  [
+    ; if all weights are zero use base chance
+    set recovery-chance base-recovery-chance
+  ]
 end
 
+; run model
 to go
+  ; 1 package per cycle, if there isnt one yet, make one
   if not any? packages
   [
+    ; increment cycles variable
     set cycles (cycles + 1)
+    ; check all clients and servers
     ask (turtle-set clients servers) 
     [
+      ; check if infected
       if infected?
       [
+        ; increase infection time of every infected
         set infection-time (infection-time + 1)
       ]
     ]
+    ; call recovery procedure
     recover
+    ; make package
     create-package
   ]
+  ; if there is a package
   ask packages
   [
+    ; check if it reached its goal
     check-finish
+    ; if not, move it
     move-package 
   ]
-  let devices (turtle-set clients servers)
-  let infected ((turtle-set clients servers) with [infected?])
-  ifelse count devices > 0
-  [
-    set percentage-infected (count infected / count devices) * 100
-  ]
-  [
-    set percentage-infected 0
-  ]
-  ifelse count infected > 0
-  [
-    let total 0
-    ask infected
-    [
-      set total (total + infection-time)
-    ]
-    set avg-infection-duration total / count infected
-  ]
-  [
-    set avg-infection-duration 0
-  ]
-  if cycles > 0
-  [
-    set avg-infection-cycle ((total-infected - 1) / cycles)
-    set avg-recovery-cycle (total-recovered / cycles)
-  ]
+  ; update graphs and monitor variables
+  update-statistics
+  ; advance model ticks
   tick
 end
 
+; keep statistics up to date
+to update-statistics
+  ; get turtleset for easier access
+  let devices (turtle-set clients servers)
+  ; get infected turtleset as well
+  let infected ((turtle-set clients servers) with [infected?])
+  ; if setup complete, prevents zero division error
+  ifelse count devices > 0
+  [
+    ; get % by dividing infected by total and multiplying by 100%
+    set percentage-infected (count infected / count devices) * 100
+  ]
+  [
+    ; if setup is not complete there are no infected so set to 0
+    set percentage-infected 0
+  ]
+  ; if there is atleast one infected (setup complete and virus still alive), prevents zero division error
+  ifelse count infected > 0
+  [
+    ; set variable for total infection time across all turtles
+    let total 0
+    ; ask all infected
+    ask infected
+    [
+      ; increase total by their individual score
+      set total (total + infection-time)
+    ]
+    ; divide total by number of infected to get average
+    set avg-infection-duration total / count infected
+  ]
+  [
+    ; if no infected set to 0
+    set avg-infection-duration 0
+  ]
+  ; if atleast one cycle has passed, prevents zero division error
+  if cycles > 0
+  [
+    ; get avg of n infected per cycle, correct for patient zero
+    set avg-infection-cycle ((total-infected - 1) / cycles)
+    ; get avg of n recovered devices per cycle
+    set avg-recovery-cycle (total-recovered / cycles)
+  ]
+end
+
+; resetting procedure
 to reset
+  ; remove the live package
   ask packages
   [
     die
   ]
+  ; check all turtles
   ask turtles
   [
-    if patient-zero?
+    ; if patient zero then become infected, if not become uninfected
+    ifelse patient-zero?
     [
       set infected? True
       set color red
     ]
-    if not patient-zero?
     [
       set infected? False
       set color white
     ]
   ]
+  ; reset all variables
   set cycles 0
   set total-infected 1
   set total-recovered 0
+  set percentage-infected (count (turtle-set clients servers) with [infected?] / count (turtle-set clients servers)) * 100
+  set avg-infection-duration 0
+  set avg-infection-cycle 0
+  set avg-recovery-cycle 0
   clear-all-plots
-  clear-output
   reset-ticks
 end
 
+; spawn a new package
 to create-package
+  ; pick a random spawn point
   let origin one-of (turtle-set clients servers)
+  ; access spawn point
   ask origin
   [
+    ; get location
     ask patch-here
     [
+      ; spawn 1
       sprout-packages 1
       [
+        ; set variables
         set shape "letter sealed"
         set size 1.5
+        ; inherit variables
         set color [color] of origin
         set infected? [infected?] of origin
+        ; pick random target
         set finish one-of other (turtle-set clients servers)
+        ; set first node in path
         set destination one-of ([link-neighbors] of origin) with [breed = routers]
+        ; turn to first node
         face destination
+        ; keep track of visited nodes
         set visited (turtle-set)
       ]
     ] 
   ]
 end
 
+; check if at target
 to check-finish
+  ; if at target
   if patch-here = [patch-here] of finish
   [
+    ; if package is infected
     if infected?
     [
-      if finish != infected?
+      ; and finish is not yet infected
+      if not [infected?] of finish
       [
+        ; start infecting procedure
         infect
       ]
     ]
+    ; remove package
     die
   ]
 end
 
+; pathfinding for package
 to move-package
+  ; if not at destination node
   if patch-here != [patch-here] of destination
   [
+    ; move towards destination
     fd 1
   ]
+  ; if at destination
   if patch-here = [patch-here] of destination
   [
+    ; get local variables to prevent access conflicts
     let my-visited visited
     let my-finish finish
+    ; if target is connected to current node
     if [link-neighbor? my-finish] of destination
     [
+      ;; set target as new destination
       set destination my-finish
     ]
+    ; if the target is not yet reachable
     if destination != my-finish
     [
+      ; add last destination to list of visited nodes
       set visited (turtle-set visited destination)
+      ; get all connected nodes that package has not yet been
       let options ([link-neighbors] of destination) with [breed = routers and not member? self my-visited]
+      ; if there is a valid node
       if any? options
       [
+        ; pick closest valid node as new destination
         set destination min-one-of options [distance my-finish]
       ]
+      ; if not (means its stuck)
       if not any? options
       [
+        ; clear visited list and start over
         set visited (turtle-set)
       ]
     ]
+    ; turn to destination
     face destination
   ]
 end
 
+; infection procedure
 to infect
+  ; ask target of package
   ask finish
   [
+    ; if chance hits become infected
     if (random-float 1 < infection-chance)
     [
+      ; set variables
       set color red
       set infected? True
       set total-infected (total-infected + 1)
@@ -362,11 +486,15 @@ to infect
   ]
 end
 
+; recovery procedure
 to recover
+  ; ask all infected turtles
   ask turtles with [infected?]
   [
+    ; if chance hits recover
     if (random-float 1 < recovery-chance)
     [
+      ; set variables
       set color white
       set infected? False
       set total-recovered (total-recovered + 1)
@@ -376,7 +504,7 @@ to recover
 end]]></code>
   <widgets>
     <view x="525" wrappingAllowedX="false" y="25" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
-    <slider x="0" step="0.1" y="220" max="1" width="250" display="base-recovery-chance" height="50" min="0" direction="Horizontal" default="1.0" variable="base-recovery-chance"></slider>
+    <slider x="0" step="0.1" y="220" max="1" width="250" display="base-recovery-chance" height="50" min="0" direction="Horizontal" default="0.5" variable="base-recovery-chance"></slider>
     <slider x="0" step="0.1" y="175" max="1" width="250" display="base-infection-chance" height="50" min="0" direction="Horizontal" default="1.0" variable="base-infection-chance"></slider>
     <slider x="0" step="1" y="130" max="25" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
     <slider x="0" step="1" y="85" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-servers"></slider>
@@ -423,14 +551,6 @@ end]]></code>
     <button x="240" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="111" display="Set random seed">set seed random 1000000</button>
     <monitor x="1065" precision="2" y="275" height="60" fontSize="11" width="140">percentage-infected</monitor>
     <monitor x="1065" precision="12" y="0" height="60" fontSize="11" width="140">cycles</monitor>
-    <plot x="1205" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="Cycles" y="150" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" xAxis="Ticks" display="Avg. Infection duration">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="default" color="-13345367" legend="true">
-        <setup></setup>
-        <update>plot avg-infection-duration</update>
-      </pen>
-    </plot>
     <monitor x="1065" precision="12" y="55" height="60" fontSize="11" width="140" display="infection-chance">infection-chance</monitor>
     <monitor x="1065" precision="12" y="110" height="60" fontSize="11" width="140">recovery-chance</monitor>
     <monitor x="1065" precision="12" y="165" height="60" fontSize="11" width="140">total-infected</monitor>
@@ -468,6 +588,14 @@ end]]></code>
     </plot>
     <button x="0" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Setup">setup</button>
     <button x="60" y="0" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55" display="Run">go</button>
+    <plot x="1205" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="Cycles" y="150" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" xAxis="Ticks" display="Avg. Infection duration">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="default" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot avg-infection-duration</update>
+      </pen>
+    </plot>
     <plot x="1205" autoPlotX="true" yMax="0.1" autoPlotY="true" yAxis="Devices" y="300" xMin="0.0" height="175" legend="true" xMax="10.0" yMin="0.0" width="230" xAxis="Ticks" display="Avg. Infection vs. Recovery per cycle">
       <setup></setup>
       <update></update>
