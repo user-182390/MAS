@@ -220,12 +220,12 @@ to calculate-infection-chance
   ; avoid zero division error
   ifelse max-score != 0
   [
-    ; set infection chance, ensure it cant be negative
-    set infection-chance max (list (base-infection-chance * (score / max-score)) 0) 
+    ; set infection chance, ensure it cant be negative or zero
+    set infection-chance max (list (base-infection-multiplier * (score / max-score)) (base-infection-multiplier * base-chance))
   ]
   [
     ; if every weight is set to 0, use the base chance
-    set infection-chance base-infection-chance
+    set infection-chance (base-infection-multiplier * base-chance)
   ]
 end
 
@@ -272,16 +272,16 @@ to calculate-recovery-chance
   ; multiply factors by corresponding weights
   let score ((user-age-weight * user-age-factor) + (digital-security-awareness-weight * digital-security-awareness-factor) + (risk-aversion-weight * risk-aversion-factor) + (untrustworthy-usage-weight * untrustworthy-usage-factor))
   ; get highest possible score
-  let max-score ((user-age-factor + digital-security-awareness-weight + risk-aversion-weight + untrustworthy-usage-weight) * 2)
+  let max-score ((user-age-weight + digital-security-awareness-weight + risk-aversion-weight + untrustworthy-usage-weight) * 2)
   ; prevent zero division error
   ifelse max-score != 0
   [
-    ; set recovery chance, ensure it cant be negative. divide by number of devices, as this chance is applied to every infected device every cycle. 
-    set recovery-chance (max (list (base-recovery-chance * (score / max-score)) 0)  / count (turtle-set clients servers))
+    ; set recovery chance, ensure it cant be negative or zero
+    set recovery-chance max (list (base-recovery-multiplier * (score / max-score)) (base-recovery-multiplier * base-chance))
   ]
   [
     ; if all weights are zero use base chance
-    set recovery-chance base-recovery-chance
+    set recovery-chance (base-recovery-multiplier * base-chance)
   ]
 end
 
@@ -302,8 +302,6 @@ to go
         set infection-time (infection-time + 1)
       ]
     ]
-    ; call recovery procedure
-    recover
     ; make package
     create-package
   ]
@@ -445,6 +443,8 @@ to check-finish
         infect
       ]
     ]
+    ; call recovery procedure
+    recover
     ; remove package
     die
   ]
@@ -486,8 +486,8 @@ to move-package
       ; if not (means its stuck)
       if not any? options
       [
-        ; clear visited list and start over
-        set visited (turtle-set)
+        ; move to finish, avoid infinite loop
+        move-to my-finish
       ]
     ]
     ; turn to destination
@@ -514,28 +514,32 @@ end
 
 ; recovery procedure
 to recover
-  ; ask all infected turtles
-  ask turtles with [infected?]
+  ; get a random device
+  ask one-of (turtle-set clients servers)
   [
-    ; if chance hits recover
-    if (random-float 1 < recovery-chance)
+    ; check if infected
+    if infected?
     [
-      ; set variables
-      set color white
-      set infected? False
-      set total-recovered (total-recovered + 1)
-      set infection-time 0
-    ] 
+      ; if chance hits recover
+      if (random-float 1 < recovery-chance)
+      [
+        ; set variables
+        set color white
+        set infected? False
+        set total-recovered (total-recovered + 1)
+        set infection-time 0
+      ] 
+    ]
   ]
 end]]></code>
   <widgets>
     <view x="525" wrappingAllowedX="false" y="25" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
-    <slider x="0" step="0.1" y="220" max="1" width="250" display="base-recovery-chance" height="50" min="0" direction="Horizontal" default="0.5" variable="base-recovery-chance"></slider>
-    <slider x="0" step="0.1" y="175" max="1" width="250" display="base-infection-chance" height="50" min="0" direction="Horizontal" default="1.0" variable="base-infection-chance"></slider>
+    <slider x="0" step="0.1" y="220" max="1" width="250" display="base-recovery-multiplier" height="50" min="0" direction="Horizontal" default="1.0" variable="base-recovery-multiplier"></slider>
+    <slider x="0" step="0.1" y="175" max="1" width="250" display="base-infection-multiplier" height="50" min="0" direction="Horizontal" default="1.0" variable="base-infection-multiplier"></slider>
     <slider x="0" step="1" y="130" max="25" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
     <slider x="0" step="1" y="85" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-servers"></slider>
     <slider x="0" step="1" y="40" max="25" width="250" display="n-clients" height="50" min="1" direction="Horizontal" default="25.0" variable="n-clients"></slider>
-    <chooser x="250" y="40" height="60" variable="digital-security-awareness" current="3" width="250" display="digital-security-awareness">
+    <chooser x="250" y="40" height="60" variable="digital-security-awareness" current="2" width="250" display="digital-security-awareness">
       <choice type="string" value="Very low"></choice>
       <choice type="string" value="Low"></choice>
       <choice type="string" value="Medium"></choice>
@@ -543,7 +547,7 @@ end]]></code>
       <choice type="string" value="Very high"></choice>
     </chooser>
     <slider x="250" step="0.1" y="95" max="1" width="250" display="digital-security-awareness-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="digital-security-awareness-weight"></slider>
-    <chooser x="250" y="140" height="60" variable="risk-aversion" current="3" width="250" display="risk-aversion">
+    <chooser x="250" y="140" height="60" variable="risk-aversion" current="2" width="250" display="risk-aversion">
       <choice type="string" value="Very low"></choice>
       <choice type="string" value="Low"></choice>
       <choice type="string" value="Medium"></choice>
@@ -551,15 +555,7 @@ end]]></code>
       <choice type="string" value="Very high"></choice>
     </chooser>
     <slider x="250" step="0.1" y="195" max="1" width="250" display="risk-aversion-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="risk-aversion-weight"></slider>
-    <chooser x="250" y="240" height="60" variable="time-online" current="3" width="250" display="time-online">
-      <choice type="string" value="Very low"></choice>
-      <choice type="string" value="Low"></choice>
-      <choice type="string" value="Medium"></choice>
-      <choice type="string" value="High"></choice>
-      <choice type="string" value="Very high"></choice>
-    </chooser>
-    <slider x="250" step="0.1" y="295" max="1" width="250" display="time-online-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="time-online-weight"></slider>
-    <chooser x="250" y="340" height="60" variable="untrustworthy-usage" current="3" width="250" display="untrustworthy-usage">
+    <chooser x="250" y="340" height="60" variable="untrustworthy-usage" current="2" width="250" display="untrustworthy-usage">
       <choice type="string" value="Very low"></choice>
       <choice type="string" value="Low"></choice>
       <choice type="string" value="Medium"></choice>
@@ -567,25 +563,9 @@ end]]></code>
       <choice type="string" value="Very high"></choice>
     </chooser>
     <slider x="250" step="0.1" y="395" max="1" width="250" display="untrustworthy-usage-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="untrustworthy-usage-weight"></slider>
-    <slider x="0" step="0.1" y="395" max="1" width="250" display="user-age-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="user-age-weight"></slider>
-    <chooser x="0" y="340" height="60" variable="user-age" current="2" width="250" display="user-age">
-      <choice type="string" value="Young"></choice>
-      <choice type="string" value="Middle"></choice>
-      <choice type="string" value="Old"></choice>
-    </chooser>
-    <input x="0" multiline="false" y="265" height="60" variable="seed" type="number" width="250">189254.0</input>
     <button x="120" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Step">go</button>
     <button x="180" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="Reset">reset</button>
     <button x="240" y="0" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="111" display="Set random seed">set seed random 1000000</button>
-    <monitor x="1065" precision="2" y="275" height="60" fontSize="11" width="140">percentage-infected</monitor>
-    <monitor x="1065" precision="12" y="0" height="60" fontSize="11" width="140">cycles</monitor>
-    <monitor x="1065" precision="12" y="55" height="60" fontSize="11" width="140" display="infection-chance">infection-chance</monitor>
-    <monitor x="1065" precision="12" y="110" height="60" fontSize="11" width="140">recovery-chance</monitor>
-    <monitor x="1065" precision="12" y="165" height="60" fontSize="11" width="140">total-infected</monitor>
-    <monitor x="1065" precision="12" y="220" height="60" fontSize="11" width="140">total-recovered</monitor>
-    <monitor x="1065" precision="12" y="330" height="60" fontSize="11" width="140">avg-infection-duration</monitor>
-    <monitor x="1065" precision="17" y="385" height="60" fontSize="11" width="140">avg-infection-cycle</monitor>
-    <monitor x="1065" precision="17" y="435" height="60" fontSize="11" width="140">avg-recovery-cycle</monitor>
     <plot x="1205" autoPlotX="true" yMax="10.0" autoPlotY="true" yAxis="%" y="0" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" xAxis="Ticks" display="% Infected">
       <setup></setup>
       <update></update>
@@ -636,6 +616,31 @@ end]]></code>
         <update>plot avg-recovery-cycle</update>
       </pen>
     </plot>
+    <slider x="0" step="0.1" y="265" max="1" width="250" display="base-chance" height="50" min="0" direction="Horizontal" default="0.1" variable="base-chance"></slider>
+    <chooser x="250" y="240" height="60" variable="time-online" current="2" width="250" display="time-online">
+      <choice type="string" value="Very low"></choice>
+      <choice type="string" value="Low"></choice>
+      <choice type="string" value="Medium"></choice>
+      <choice type="string" value="High"></choice>
+      <choice type="string" value="Very high"></choice>
+    </chooser>
+    <input x="0" multiline="false" y="311" height="60" variable="seed" type="number" width="250">189254.0</input>
+    <slider x="250" step="0.1" y="295" max="1" width="250" display="time-online-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="time-online-weight"></slider>
+    <monitor x="1065" precision="12" y="0" height="60" fontSize="11" width="140">cycles</monitor>
+    <monitor x="1065" precision="12" y="50" height="60" fontSize="11" width="140" display="infection-chance">infection-chance</monitor>
+    <monitor x="1065" precision="12" y="100" height="60" fontSize="11" width="140">recovery-chance</monitor>
+    <monitor x="1065" precision="12" y="150" height="60" fontSize="11" width="140">total-infected</monitor>
+    <monitor x="1065" precision="12" y="200" height="60" fontSize="11" width="140">total-recovered</monitor>
+    <monitor x="1065" precision="2" y="250" height="60" fontSize="11" width="140">percentage-infected</monitor>
+    <monitor x="1065" precision="12" y="300" height="60" fontSize="11" width="140">avg-infection-duration</monitor>
+    <monitor x="1065" precision="17" y="350" height="60" fontSize="11" width="140">avg-infection-cycle</monitor>
+    <monitor x="1065" precision="17" y="400" height="60" fontSize="11" width="140">avg-recovery-cycle</monitor>
+    <chooser x="0" y="365" height="60" variable="user-age" current="0" width="250" display="user-age">
+      <choice type="string" value="Young"></choice>
+      <choice type="string" value="Middle"></choice>
+      <choice type="string" value="Old"></choice>
+    </chooser>
+    <slider x="0" step="0.1" y="420" max="1" width="250" display="user-age-weight" height="50" min="0" direction="Horizontal" default="1.0" variable="user-age-weight"></slider>
   </widgets>
   <info>## Computer virus model
 This model simulates the spread and behaviour of a computer virus over a simple network.It incorporates a large number of variables, adjustable weights and is highly customisable. No code from other models was re-used in this model.
