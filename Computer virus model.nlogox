@@ -536,9 +536,9 @@ end]]></code>
     <view x="525" wrappingAllowedX="false" y="25" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <slider x="0" step="0.1" y="220" max="1" width="250" display="base-recovery-multiplier" height="50" min="0" direction="Horizontal" default="1.0" variable="base-recovery-multiplier"></slider>
     <slider x="0" step="0.1" y="175" max="1" width="250" display="base-infection-multiplier" height="50" min="0" direction="Horizontal" default="1.0" variable="base-infection-multiplier"></slider>
-    <slider x="0" step="1" y="130" max="25" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
-    <slider x="0" step="1" y="85" max="25" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-servers"></slider>
-    <slider x="0" step="1" y="40" max="25" width="250" display="n-clients" height="50" min="1" direction="Horizontal" default="25.0" variable="n-clients"></slider>
+    <slider x="0" step="1" y="130" max="250" width="250" display="n-routers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-routers"></slider>
+    <slider x="0" step="1" y="85" max="250" width="250" display="n-servers" height="50" min="1" direction="Horizontal" default="10.0" variable="n-servers"></slider>
+    <slider x="0" step="1" y="40" max="250" width="250" display="n-clients" height="50" min="1" direction="Horizontal" default="25.0" variable="n-clients"></slider>
     <chooser x="250" y="40" height="60" variable="digital-security-awareness" current="2" width="250" display="digital-security-awareness">
       <choice type="string" value="Very low"></choice>
       <choice type="string" value="Low"></choice>
